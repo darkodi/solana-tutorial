@@ -3,46 +3,62 @@ use std::mem::size_of;
 
 declare_id!("HUBqtg5NkMCyygzyxx9Vc4X389icp6i9pXPV9pnrkEaH");
 
+const STARTING_POINTS: u32 = 10;
+
 #[program]
-pub mod other_write {
+pub mod points {
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        ctx.accounts.player.points = STARTING_POINTS;
+        ctx.accounts.player.authority = ctx.accounts.signer.key();
         Ok(())
     }
 
-    pub fn update_value(ctx: Context<UpdateValue>, new_value: u64) -> Result<()> {
-        ctx.accounts.my_storage.x = new_value;
+    pub fn transfer_points(ctx: Context<TransferPoints>,
+                           amount: u32) -> Result<()> {
+        require!(ctx.accounts.from.authority == ctx.accounts.signer.key(), Errors::SignerIsNotAuthority);
+        require!(ctx.accounts.from.points >= amount, Errors::InsufficientPoints);
+
+        ctx.accounts.from.points -= amount;
+        ctx.accounts.to.points += amount;
         Ok(())
     }
+}
+
+#[error_code]
+pub enum Errors {
+    #[msg("SignerIsNotAuthority")]
+    SignerIsNotAuthority,
+    #[msg("InsufficientPoints")]
+    InsufficientPoints
 }
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
     #[account(init,
-              payer = fren,
-              space=size_of::<MyStorage>() + 8,
-              seeds = [],
+              payer = signer,
+              space = size_of::<Player>() + 8,
+              seeds = [&(signer.as_ref().key().to_bytes())],
               bump)]
-    pub my_storage: Account<'info, MyStorage>,
-
+    player: Account<'info, Player>,
     #[account(mut)]
-    pub fren: Signer<'info>, // A public key is passed here
-
-    pub system_program: Program<'info, System>,
+    signer: Signer<'info>,
+    system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-pub struct UpdateValue<'info> {
-    #[account(mut, seeds = [], bump)]
-    pub my_storage: Account<'info, MyStorage>,
-
-    // THIS FIELD MUST BE INCLUDED
+pub struct TransferPoints<'info> {
     #[account(mut)]
-    pub fren: Signer<'info>,
+    from: Account<'info, Player>,
+    #[account(mut)]
+    to: Account<'info, Player>,
+    #[account(mut)]
+    signer: Signer<'info>,
 }
 
 #[account]
-pub struct MyStorage {
-    x: u64,
+pub struct Player {
+    points: u32,
+    authority: Pubkey
 }

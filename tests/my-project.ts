@@ -1,6 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { OtherWrite } from "../target/types/other_write";
+import { Points } from "../target/types/points";
 
 // this airdrops sol to an address
 async function airdropSol(publicKey, amount) {
@@ -17,38 +17,67 @@ async function confirmTransaction(tx) {
   });
 }
 
-describe("other_write", () => {
-  // Configure the client to use the local cluster.
+describe("points", () => {
   anchor.setProvider(anchor.AnchorProvider.env());
+  const program = anchor.workspace.Points as Program<Points>;
 
-  const program = anchor.workspace.OtherWrite as Program<OtherWrite>;
 
-  it("Is initialized!", async () => {
+  it("Alice transfers points to Bob", async () => {
     const alice = anchor.web3.Keypair.generate();
     const bob = anchor.web3.Keypair.generate();
+    const malory = anchor.web3.Keypair.generate();
 
-    const airdrop_alice_tx = await anchor.getProvider().connection.requestAirdrop(alice.publicKey, 1 * anchor.web3.LAMPORTS_PER_SOL);
-    await confirmTransaction(airdrop_alice_tx);
+    await airdropSol(alice.publicKey, 1 * anchor.web3.LAMPORTS_PER_SOL);
 
-    const airdrop_bob_tx = await anchor.getProvider().connection.requestAirdrop(bob.publicKey, 1 * anchor.web3.LAMPORTS_PER_SOL);
-    await confirmTransaction(airdrop_bob_tx);
+    await airdropSol(bob.publicKey, 1 * anchor.web3.LAMPORTS_PER_SOL);
 
-    let seeds = [];
-    const [myStorage, _bump] = anchor.web3.PublicKey.findProgramAddressSync(seeds, program.programId);
+    await airdropSol(malory.publicKey, 1 * anchor.web3.LAMPORTS_PER_SOL);
 
-    // ALICE INITIALIZE ACCOUNT
-    await program.methods.initialize().accountsPartial({
-      myStorage: myStorage,
-      fren: alice.publicKey
+    let seeds_alice = [alice.publicKey.toBytes()];
+    const [playerAlice, _bumpA] = anchor.web3.PublicKey.findProgramAddressSync(seeds_alice, program.programId);
+
+    let seeds_bob = [bob.publicKey.toBytes()];
+    const [playerBob, _bumpB] = anchor.web3.PublicKey.findProgramAddressSync(seeds_bob, program.programId);
+
+    let seeds_malory = [malory.publicKey.toBytes()];
+    const [playerMalory, _bumpM] = anchor.web3.PublicKey.findProgramAddressSync(seeds_malory, program.programId);
+
+    // Alice and Bob initialize their accounts
+    await program.methods.initialize().accounts({
+      player: playerAlice,
+      signer: alice.publicKey,
     }).signers([alice]).rpc();
 
-    // BOB WRITE TO ACCOUNT
-    await program.methods.updateValue(new anchor.BN(3)).accountsPartial({
-      myStorage: myStorage,
-      fren: bob.publicKey
+    await program.methods.initialize().accounts({
+      player: playerBob,
+      signer: bob.publicKey,
     }).signers([bob]).rpc();
 
-    let value = await program.account.myStorage.fetch(myStorage);
-    console.log(`value stored is ${value.x}`);
+    await program.methods.initialize().accounts({
+      player: playerMalory,
+      signer: malory.publicKey,
+    }).signers([malory]).rpc();
+
+    // Alice transfers 5 points to Bob. Note that this is a u32
+    // so we don't need a BigNum
+    await program.methods.transferPoints(5).accounts({
+      from: playerAlice,
+      to: playerBob,
+      signer: alice.publicKey,
+    }).signers([alice]).rpc();
+
+    // mallory tries to transfer points from Alice to herself but fails
+    try {
+      await program.methods.transferPoints(5).accounts({
+        from: playerAlice,
+        to: playerMalory,
+        signer: malory.publicKey,
+      }).signers([malory]).rpc();
+    } catch (e) {
+      console.log("Expected error: ", e);
+    }
+
+    console.log(`Alice has ${(await program.account.player.fetch(playerAlice)).points} points`);
+    console.log(`Bob has ${(await program.account.player.fetch(playerBob)).points} points`)
   });
 });
