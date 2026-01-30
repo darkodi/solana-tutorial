@@ -1,44 +1,37 @@
 use anchor_lang::prelude::*;
+use anchor_lang::system_program;
 
 declare_id!("HUBqtg5NkMCyygzyxx9Vc4X389icp6i9pXPV9pnrkEaH");
 
 #[program]
-pub mod basic_storage {
+pub mod sol_splitter {
     use super::*;
 
-    pub fn initialize(_ctx: Context<Initialize>) -> Result<()> {
-        Ok(())
-    }
+    pub fn send_sol(ctx: Context<SendSol>, amount: u64) -> Result<()> {
+    let cpi_context = CpiContext::new(
+        ctx.accounts.system_program.to_account_info(), 
+        system_program::Transfer {
+            from: ctx.accounts.signer.to_account_info(),
+            to: ctx.accounts.recipient.to_account_info(),
+        }
+    );
 
-    pub fn set(ctx: Context<Set>, new_x: u64) -> Result<()> {
-        ctx.accounts.my_storage.x = new_x;
-        Ok(())
-    }
+    // Just use `?` — reverts automatically on failure!
+    system_program::transfer(cpi_context, amount)?;
+    
+    Ok(())
+}
+
 }
 
 #[derive(Accounts)]
-pub struct Set<'info> {
-    #[account(mut, seeds = [], bump)]
-    pub my_storage: Account<'info, MyStorage>,
-}
-
-#[derive(Accounts)]
-pub struct Initialize<'info> {
-    #[account(init,
-              payer = signer,
-              space= MyStorage::INIT_SPACE + 8,
-              seeds = [],
-              bump)]
-    pub my_storage: Account<'info, MyStorage>,
+pub struct SendSol<'info> {
+    /// CHECK: we do not read or write the data of this account
+    #[account(mut)]
+    recipient: UncheckedAccount<'info>,
+    
+    system_program: Program<'info, System>,
 
     #[account(mut)]
-    pub signer: Signer<'info>,
-
-    pub system_program: Program<'info, System>,
-}
-
-#[account]
-#[derive(InitSpace)]
-pub struct MyStorage {
-    x: u64,
+    signer: Signer<'info>,
 }
