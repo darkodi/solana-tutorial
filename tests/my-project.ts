@@ -1,10 +1,10 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { Points } from "../target/types/points";
+import { KeypairVsPda } from "../target/types/keypair_vs_pda";
 
 // this airdrops sol to an address
 async function airdropSol(publicKey, amount) {
-  let airdropTx = await anchor.getProvider().connection.requestAirdrop(publicKey, amount);
+  let airdropTx = await anchor.getProvider().connection.requestAirdrop(publicKey, amount * anchor.web3.LAMPORTS_PER_SOL);
   await confirmTransaction(airdropTx);
 }
 
@@ -17,67 +17,24 @@ async function confirmTransaction(tx) {
   });
 }
 
-describe("points", () => {
+describe("keypair_vs_pda", () => {
   anchor.setProvider(anchor.AnchorProvider.env());
-  const program = anchor.workspace.Points as Program<Points>;
 
+  const program = anchor.workspace.KeypairVsPda as Program<KeypairVsPda>;
 
-  it("Alice transfers points to Bob", async () => {
-    const alice = anchor.web3.Keypair.generate();
-    const bob = anchor.web3.Keypair.generate();
-    const malory = anchor.web3.Keypair.generate();
+  it("Is initialized -- keypair version", async () => {
+		
+    const newKeypair = anchor.web3.Keypair.generate();
+    await airdropSol(newKeypair.publicKey, 1e9); // 1 SOL
 
-    await airdropSol(alice.publicKey, 1 * anchor.web3.LAMPORTS_PER_SOL);
+    console.log("the keypair account address is", newKeypair.publicKey.toBase58());
 
-    await airdropSol(bob.publicKey, 1 * anchor.web3.LAMPORTS_PER_SOL);
-
-    await airdropSol(malory.publicKey, 1 * anchor.web3.LAMPORTS_PER_SOL);
-
-    let seeds_alice = [alice.publicKey.toBytes()];
-    const [playerAlice, _bumpA] = anchor.web3.PublicKey.findProgramAddressSync(seeds_alice, program.programId);
-
-    let seeds_bob = [bob.publicKey.toBytes()];
-    const [playerBob, _bumpB] = anchor.web3.PublicKey.findProgramAddressSync(seeds_bob, program.programId);
-
-    let seeds_malory = [malory.publicKey.toBytes()];
-    const [playerMalory, _bumpM] = anchor.web3.PublicKey.findProgramAddressSync(seeds_malory, program.programId);
-
-    // Alice and Bob initialize their accounts
-    await program.methods.initialize().accounts({
-      player: playerAlice,
-      signer: alice.publicKey,
-    }).signers([alice]).rpc();
-
-    await program.methods.initialize().accounts({
-      player: playerBob,
-      signer: bob.publicKey,
-    }).signers([bob]).rpc();
-
-    await program.methods.initialize().accounts({
-      player: playerMalory,
-      signer: malory.publicKey,
-    }).signers([malory]).rpc();
-
-    // Alice transfers 5 points to Bob. Note that this is a u32
-    // so we don't need a BigNum
-    await program.methods.transferPoints(5).accountsPartial({
-      from: playerAlice,
-      to: playerBob,
-      authority: alice.publicKey,
-    }).signers([alice]).rpc();
-
-    // mallory tries to transfer points from Alice to herself but fails
-    try {
-      await program.methods.transferPoints(5).accountsPartial({
-        from: playerAlice,
-        to: playerMalory,
-        authority: malory.publicKey,
-      }).signers([malory]).rpc();
-    } catch (e) {
-      console.log("Expected error message: ", e.message);
-    }
-
-    console.log(`Alice has ${(await program.account.player.fetch(playerAlice)).points} points`);
-    console.log(`Bob has ${(await program.account.player.fetch(playerBob)).points} points`)
+    await program.methods.initializeKeypairAccount()
+      .accounts({myKeypairAccount: newKeypair.publicKey})
+      .signers([newKeypair]) // the signer must be the keypair
+      .rpc()
+      
+    console.log("my_keypair_account x value", (await program.account.myKeypairAccount.fetch(newKeypair.publicKey)).x.toNumber());
+  
   });
 });
