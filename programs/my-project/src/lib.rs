@@ -1,39 +1,48 @@
 use anchor_lang::prelude::*;
-use anchor_lang::system_program;
+use std::mem::size_of;
 
 declare_id!("HUBqtg5NkMCyygzyxx9Vc4X389icp6i9pXPV9pnrkEaH");
 
 #[program]
-pub mod sol_splitter {
+pub mod other_write {
     use super::*;
 
-    pub fn split_sol<'a, 'b, 'c, 'info>(
-        ctx: Context<'a, 'b, 'c, 'info, SplitSol<'info>>,
-        amount: u64,
-    ) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        Ok(())
+    }
 
-        let amount_each_gets = amount / ctx.remaining_accounts.len() as u64;
-        let system_program = &ctx.accounts.system_program;
-
-        // note the keyword `remaining_accounts`
-        for recipient in ctx.remaining_accounts {
-            let cpi_accounts = system_program::Transfer {
-                from: ctx.accounts.signer.to_account_info(),
-                to: recipient.to_account_info(),
-            };
-            let cpi_program = system_program.to_account_info();
-            let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
-
-            system_program::transfer(cpi_context, amount_each_gets)?;
-        }
-
+    pub fn update_value(ctx: Context<UpdateValue>, new_value: u64) -> Result<()> {
+        ctx.accounts.my_storage.x = new_value;
         Ok(())
     }
 }
 
 #[derive(Accounts)]
-pub struct SplitSol<'info> {
+pub struct Initialize<'info> {
+    #[account(init,
+              payer = fren,
+              space=size_of::<MyStorage>() + 8,
+              seeds = [],
+              bump)]
+    pub my_storage: Account<'info, MyStorage>,
+
     #[account(mut)]
-    signer: Signer<'info>,
-    system_program: Program<'info, System>,
+    pub fren: Signer<'info>, // A public key is passed here
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateValue<'info> {
+    #[account(mut, seeds = [], bump)]
+    pub my_storage: Account<'info, MyStorage>,
+
+    // THIS FIELD MUST BE INCLUDED
+    #[account(mut)]
+    pub fren: Signer<'info>,
+}
+
+#[account]
+pub struct MyStorage {
+    x: u64,
 }
