@@ -1,33 +1,40 @@
 use anchor_lang::prelude::*;
-use std::mem::size_of;
 
 declare_id!("HUBqtg5NkMCyygzyxx9Vc4X389icp6i9pXPV9pnrkEaH");
 
 #[program]
-pub mod keypair_vs_pda {
+pub mod owner {
     use super::*;
 
-    pub fn initialize_keypair_account(ctx: Context<InitializeKeypairAccount>) -> Result<()> {
-        ctx.accounts.my_keypair_account.x = 42;
+    pub fn initialize_keypair(_ctx: Context<InitializeKeypair>) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn initialize_pda(_ctx: Context<InitializePda>) -> Result<()> {
         Ok(())
     }
 }
 
 #[derive(Accounts)]
-pub struct InitializeKeypairAccount<'info> {
-    // This is the program derived address
-    #[account(init,
-              payer = signer,
-              space = size_of::<MyKeypairAccount>() + 8,)]
-    pub my_keypair_account: Account<'info, MyKeypairAccount>,
-
+pub struct InitializeKeypair<'info> {
+    #[account(init, payer = signer, space = 8)]
+    keypair: Account<'info, Keypair>,
     #[account(mut)]
-    pub signer: Signer<'info>,
+    signer: Signer<'info>,
+    system_program: Program<'info, System>,
+}
 
-    pub system_program: Program<'info, System>,
+#[derive(Accounts)]
+pub struct InitializePda<'info> {
+    #[account(init, payer = signer, space = 8, seeds = [], bump)]
+    pda: Account<'info, Pda>,
+    #[account(mut)]
+    signer: Signer<'info>,
+    system_program: Program<'info, System>,
 }
 
 #[account]
-pub struct MyKeypairAccount {
-    x: u64,
-}
+pub struct Keypair();
+
+#[account]
+pub struct Pda();
