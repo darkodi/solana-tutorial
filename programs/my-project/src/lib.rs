@@ -7,13 +7,13 @@ declare_id!("HUBqtg5NkMCyygzyxx9Vc4X389icp6i9pXPV9pnrkEaH");
 pub mod batch {
     use super::*;
 
-    pub fn initialize(_ctx: Context<Initialize>) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         Ok(())
     }
 
     pub fn set(ctx: Context<Set>, new_val: u32) -> Result<()> {
         ctx.accounts.pda.value = new_val;
-        Ok(())
+        Ok(()) // ERROR HAS BEEN REMOVED
     }
 }
 
