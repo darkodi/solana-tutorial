@@ -4,33 +4,37 @@ use std::mem::size_of;
 declare_id!("HUBqtg5NkMCyygzyxx9Vc4X389icp6i9pXPV9pnrkEaH");
 
 #[program]
-pub mod init_if_needed {
+pub mod batch {
     use super::*;
 
-    pub fn increment(ctx: Context<Initialize>) -> Result<()> {
-        let current_counter = ctx.accounts.my_pda.counter;
-        ctx.accounts.my_pda.counter = current_counter + 1;
+    pub fn initialize(_ctx: Context<Initialize>) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn set(ctx: Context<Set>, new_val: u32) -> Result<()> {
+        ctx.accounts.pda.value = new_val;
         Ok(())
     }
 }
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(
-        init_if_needed,
-        payer = signer,
-        space = size_of::<MyPDA>() + 8,
-        seeds = [],
-        bump
-    )]
-    pub my_pda: Account<'info, MyPDA>,
+    #[account(init, payer = signer, space = size_of::<PDA>() + 8, seeds = [], bump)]
+    pub pda: Account<'info, PDA>,
 
     #[account(mut)]
     pub signer: Signer<'info>,
+
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct Set<'info> {
+    #[account(mut)]
+    pub pda: Account<'info, PDA>,
+}
+
 #[account]
-pub struct MyPDA {
-    pub counter: u64,
+pub struct PDA {
+    pub value: u32,
 }
