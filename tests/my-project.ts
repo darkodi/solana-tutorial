@@ -34,7 +34,20 @@ describe("crowdfund", () => {
       pda: pdaAccount
     }).rpc();
 
+
     console.log("lamport balance of pdaAccount after withdrawal",
+    await anchor.getProvider().connection.getBalance(pdaAccount));  
+    // try to transfer back another 1_000_000_001 lamports, rent exemption should prevent this
+    try {
+      await program.methods.withdraw(new anchor.BN(1_000_000_001)).accounts({
+        pda: pdaAccount
+      }).rpc();
+    } catch (e) {
+      console.log("expected error on over-withdrawal:", e);
+    }
+
+    // check balance again to confirm no change
+    console.log("lamport balance of pdaAccount after failed withdrawal",
     await anchor.getProvider().connection.getBalance(pdaAccount));
 
   });
