@@ -60,21 +60,21 @@ describe("points", () => {
 
     // Alice transfers 5 points to Bob. Note that this is a u32
     // so we don't need a BigNum
-    await program.methods.transferPoints(5).accounts({
+    await program.methods.transferPoints(5).accountsPartial({
       from: playerAlice,
       to: playerBob,
-      signer: alice.publicKey,
+      authority: alice.publicKey,
     }).signers([alice]).rpc();
 
     // mallory tries to transfer points from Alice to herself but fails
     try {
-      await program.methods.transferPoints(5).accounts({
+      await program.methods.transferPoints(5).accountsPartial({
         from: playerAlice,
         to: playerMalory,
-        signer: malory.publicKey,
+        authority: malory.publicKey,
       }).signers([malory]).rpc();
     } catch (e) {
-      console.log("Expected error: ", e);
+      console.log("Expected error message: ", e.message);
     }
 
     console.log(`Alice has ${(await program.account.player.fetch(playerAlice)).points} points`);

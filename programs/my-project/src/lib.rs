@@ -15,11 +15,7 @@ pub mod points {
         Ok(())
     }
 
-    pub fn transfer_points(ctx: Context<TransferPoints>,
-                           amount: u32) -> Result<()> {
-        require!(ctx.accounts.from.authority == ctx.accounts.signer.key(), Errors::SignerIsNotAuthority);
-        require!(ctx.accounts.from.points >= amount, Errors::InsufficientPoints);
-
+    pub fn transfer_points(ctx: Context<TransferPoints>, amount: u32) -> Result<()> {
         ctx.accounts.from.points -= amount;
         ctx.accounts.to.points += amount;
         Ok(())
@@ -31,7 +27,7 @@ pub enum Errors {
     #[msg("SignerIsNotAuthority")]
     SignerIsNotAuthority,
     #[msg("InsufficientPoints")]
-    InsufficientPoints
+    InsufficientPoints,
 }
 
 #[derive(Accounts)]
@@ -48,17 +44,20 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(amount: u32)]
 pub struct TransferPoints<'info> {
-    #[account(mut)]
+    #[account(mut,
+              has_one = authority @ Errors::SignerIsNotAuthority,
+              constraint = from.points >= amount @ Errors::InsufficientPoints)]
     from: Account<'info, Player>,
     #[account(mut)]
     to: Account<'info, Player>,
     #[account(mut)]
-    signer: Signer<'info>,
+    authority: Signer<'info>,
 }
 
 #[account]
 pub struct Player {
     points: u32,
-    authority: Pubkey
+    authority: Pubkey,
 }
