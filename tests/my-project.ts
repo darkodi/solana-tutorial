@@ -7,25 +7,32 @@ describe("sol_splitter", () => {
   anchor.setProvider(anchor.AnchorProvider.env());
 
   const program = anchor.workspace.SolSplitter as Program<SolSplitter>;
-  const signer = anchor.getProvider().publicKey;
+
   async function printAccountBalance(account) {
     const balance = await anchor.getProvider().connection.getBalance(account);
     console.log(`${account} has ${balance / anchor.web3.LAMPORTS_PER_SOL} SOL`);
   }
 
-  it("Transmit SOL", async () => {
-    // generate a new wallet
-    const recipient = anchor.web3.Keypair.generate();
+  it("Split SOL", async () => {
+    const recipient1 = anchor.web3.Keypair.generate();
+    const recipient2 = anchor.web3.Keypair.generate();
+    const recipient3 = anchor.web3.Keypair.generate();
 
-    await printAccountBalance(signer);
-    await printAccountBalance(recipient.publicKey);
+    await printAccountBalance(recipient1.publicKey);
+    await printAccountBalance(recipient2.publicKey);
+    await printAccountBalance(recipient3.publicKey);
 
-    // send the account 1 SOL via the program
-    let amount = new anchor.BN(5 * anchor.web3.LAMPORTS_PER_SOL);
-    await program.methods.sendSol(amount)
-      .accounts({recipient: recipient.publicKey})
+    const accountMeta1 = {pubkey: recipient1.publicKey, isWritable: true, isSigner: false};
+    const accountMeta2 = {pubkey: recipient2.publicKey, isWritable: true, isSigner: false};
+    const accountMeta3 = {pubkey: recipient3.publicKey, isWritable: true, isSigner: false};
+
+    let amount = new anchor.BN(1 * anchor.web3.LAMPORTS_PER_SOL);
+    await program.methods.splitSol(amount)
+      .remainingAccounts([accountMeta1, accountMeta2, accountMeta3])
       .rpc();
-    await printAccountBalance(signer);
-    await printAccountBalance(recipient.publicKey);
+
+    await printAccountBalance(recipient1.publicKey);
+    await printAccountBalance(recipient2.publicKey);
+    await printAccountBalance(recipient3.publicKey);
   });
 });
